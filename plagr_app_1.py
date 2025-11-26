@@ -39,7 +39,7 @@ THEMES = {
         "header_bg": "#000000", 
         "header_text": "#ffffff",
         "sub_text": "#666666",
-        "bar_bg": "#e0e0e0" # Empty part of the bar
+        "bar_bg": "#e0e0e0"
     },
     "dark": {
         "bg": "#000000", 
@@ -51,7 +51,7 @@ THEMES = {
         "header_bg": "#000000",
         "header_text": "#ffffff",
         "sub_text": "#888888",
-        "bar_bg": "#222222" # Empty part of the bar
+        "bar_bg": "#222222"
     }
 }
 
@@ -248,27 +248,27 @@ with main:
         
         r_col = "#27ae60" if sel['risk'] == "LOW" else "#f39c12" if sel['risk'] == "MODERATE" else "#c0392b"
         
-        # === SCORE + INDICATOR BAR ===
-        st.markdown(f"""
-        <div class="metric-box">
-            <div style="display:flex; justify-content:space-between;">
-                <div>
-                    <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">SIMILARITY</span>
-                    <div style="font-size:48px; font-weight:800; line-height:1;">{sel['score']*100:.1f}%</div>
-                </div>
-                <div style="text-align:right;">
-                    <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">RISK</span>
-                    <div style="font-size:32px; font-weight:800; color:{r_col};">{sel['risk']}</div>
-                </div>
-            </div>
-            
-            <div style="width:100%; height:20px; background-color:{C['bar_bg']}; margin-top:20px; border:1px solid {C['border']};">
-                <div style="width:{sel['score']*100}%; height:100%; background-color:{r_col};"></div>
-            </div>
-            
+        # === FIXED HTML INDENTATION HERE ===
+        # The HTML strings below are flush left to prevent Streamlit from interpreting them as code blocks
+        bar_html = f"""
+<div class="metric-box">
+    <div style="display:flex; justify-content:space-between;">
+        <div>
+            <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">SIMILARITY</span>
+            <div style="font-size:48px; font-weight:800; line-height:1;">{sel['score']*100:.1f}%</div>
         </div>
-        <br>
-        """, unsafe_allow_html=True)
+        <div style="text-align:right;">
+            <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">RISK</span>
+            <div style="font-size:32px; font-weight:800; color:{r_col};">{sel['risk']}</div>
+        </div>
+    </div>
+    <div style="width:100%; height:20px; background-color:{C['bar_bg']}; margin-top:20px; border:1px solid {C['border']};">
+        <div style="width:{sel['score']*100}%; height:100%; background-color:{r_col};"></div>
+    </div>
+</div>
+<br>
+"""
+        st.markdown(bar_html, unsafe_allow_html=True)
         
         common = get_common_sentences(sel["text_a"], sel["text_b"])
         col1, col2 = st.columns(2)
