@@ -53,3 +53,8 @@ python3 plagiarism.py
 🔮 Future Improvements
 	•	Add GUI (Tkinter / Streamlit)
 	•	Color-coded plagiarism bar (green → yellow → red)
+	•	Color-coded plagiarism bar (green → yellow → red)
+	•	PDF / DOCX support
+	•	Better matching using NLP (spaCy / fuzzywuzzy)📜 License
+
+Open-source project. Free to use & modify.
