@@ -4,6 +4,19 @@ from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
 import re
 
+# Document processing libraries
+try:
+    import PyPDF2
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+
+try:
+    from docx import Document
+    DOCX_SUPPORT = True
+except ImportError:
+    DOCX_SUPPORT = False
+
 # page configuration
 st.set_page_config(
     page_title="Plagiarism Detector",
@@ -58,8 +71,8 @@ st.markdown(f"""
         z-index: 1;
     }}
     
-    /* 2. TYPOGRAPHY - Clean & Minimal */
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    /* TYPOGRAPHY */
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
     
     html, body, p, div, label, span {{
         font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
@@ -79,7 +92,7 @@ st.markdown(f"""
     h2 {{ font-size: 2rem !important; }}
     h3 {{ font-size: 1.25rem !important; letter-spacing: 0.1em !important; }}
     
-    /* 3. GRID SYSTEM */
+    /* GRID */
     .swiss-grid {{
         display: grid;
         grid-template-columns: repeat(12, 1fr);
@@ -87,42 +100,31 @@ st.markdown(f"""
         margin: 24px 0;
     }}
     
-    /* 4. BUTTONS - Geometric & Functional */
-    .stButton>button {{
-        background-color: {C['accent']} !important;
-        color: #fff !important;
-        border: none !important;
+    /* BUTTONS */
+    .stButton>button, .stDownloadButton>button {{
         border-radius: 0px !important;
         text-transform: uppercase;
         font-weight: 700 !important;
         padding: 20px 40px !important;
         letter-spacing: 0.15em !important;
         transition: all 0.2s ease !important;
-        position: relative !important;
-        overflow: hidden !important;
+    }}
+    
+    .stButton>button {{
+        background-color: {C['accent']} !important;
+        color: #fff !important;
+        border: none !important;
+    }}
+    
+    .stDownloadButton>button {{
+        background-color: transparent !important;
+        color: {C['text']} !important;
+        border: 2px solid {C['text']} !important;
     }}
     
     .stButton>button:hover {{
         transform: translateY(-2px) !important;
         box-shadow: 8px 8px 0px {C['text']} !important;
-    }}
-    
-    .stButton>button:active {{
-        transform: translateY(0px) !important;
-        box-shadow: 4px 4px 0px {C['text']} !important;
-    }}
-    
-    /* Download Button - Transparent Swiss Style */
-    .stDownloadButton>button {{
-        background-color: transparent !important;
-        color: {C['text']} !important;
-        border: 2px solid {C['text']} !important;
-        border-radius: 0px !important;
-        text-transform: uppercase;
-        font-weight: 700 !important;
-        padding: 20px 40px !important;
-        letter-spacing: 0.15em !important;
-        transition: all 0.3s ease !important;
     }}
     
     .stDownloadButton>button:hover {{
@@ -133,25 +135,28 @@ st.markdown(f"""
         box-shadow: 6px 6px 0px {C['text']} !important;
     }}
     
-    .stDownloadButton>button:active {{
+    .stButton>button:active, .stDownloadButton>button:active {{
         transform: translateY(0px) !important;
-        box-shadow: 3px 3px 0px {C['text']} !important;
+        box-shadow: 4px 4px 0px {C['text']} !important;
     }}
     
-    /* 5. INPUTS - Clean & Minimal */
-    .stTextArea textarea, .stTextInput input {{
+    /* INPUTS */
+    textarea, input[type="text"] {{
         background-color: {C['input_bg']} !important;
         color: {C['text']} !important;
         border: 2px solid {C['border']} !important;
         border-radius: 0px !important;
         font-family: 'Courier New', monospace !important;
         padding: 16px !important;
-        transition: border-color 0.2s ease !important;
+        transition: all 0.3s ease !important;
+        text-align: justify !important;
+        box-shadow: 0 0 20px rgba(255, 59, 48, 0.3) !important;
     }}
     
-    .stTextArea textarea:focus, .stTextInput input:focus {{
+    textarea:focus, input[type="text"]:focus {{
         border-color: {C['accent']} !important;
         outline: none !important;
+        box-shadow: 0 0 30px rgba(255, 59, 48, 0.5) !important;
     }}
     
     .stTextArea textarea::placeholder {{ 
@@ -159,7 +164,7 @@ st.markdown(f"""
         font-style: italic !important;
     }}
 
-    /* 6. HEADER - Asymmetric Layout */
+    /* HEADER */
     .swiss-header {{
         background-color: {C['header_bg']};
         padding: 6rem 2rem 4rem 2rem;
@@ -206,7 +211,7 @@ st.markdown(f"""
         z-index: 2;
     }}
 
-    /* 7. METRIC BOX - Grid-based */
+    /* METRICS */
     .metric-box {{
         border: 3px solid {C['border']};
         background: {C['box_bg']};
@@ -226,7 +231,7 @@ st.markdown(f"""
         opacity: 0.15;
     }}
     
-    /* 8. COMPARISON BOXES - Asymmetric Design */
+    /* COMPARISON BOXES */
     .compare-box {{
         background-color: {C['box_bg']};
         border: 2px solid {C['border']};
@@ -240,6 +245,9 @@ st.markdown(f"""
         position: relative;
         line-height: 1.9 !important;
         font-weight: 400 !important;
+        text-align: justify !important;
+        box-shadow: 0 0 20px rgba(255, 59, 48, 0.3) !important;
+        transition: box-shadow 0.3s ease !important;
     }}
     
     .compare-box::-webkit-scrollbar {{
@@ -253,6 +261,10 @@ st.markdown(f"""
     .compare-box::-webkit-scrollbar-thumb {{
         background: {C['accent']};
         border-radius: 0px;
+    }}
+    
+    .compare-box:hover {{
+        box-shadow: 0 0 30px rgba(255, 59, 48, 0.5) !important;
     }}
     
     /* 9. HIGHLIGHT - Swiss Yellow */
@@ -468,8 +480,81 @@ if 'analyzed' not in st.session_state:
 if 'results' not in st.session_state:
     st.session_state.results = None
 
+def render_doc_label(label):
+    """Render a document label with Swiss design styling"""
+    return f"""
+    <div style="background: linear-gradient(90deg, {C['accent']} 4px, {C['input_bg']} 4px); 
+                padding: 12px 12px 12px 20px; 
+                margin-bottom: 12px; 
+                border: 2px solid {C['border']};
+                font-weight: 900; 
+                letter-spacing: 0.15em; 
+                font-size: 0.9rem;">
+        📄 {label}
+    </div>
+    """
+
+def render_section(number, title):
+    """Render a section header with number and title"""
+    st.markdown(f"""
+    <div class="section-header">
+        <div class="section-number">{number}</div>
+        <h3 style="margin:0;">{title}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div class="geo-line"></div>', unsafe_allow_html=True)
+
 def vectorize(texts):
     return TfidfVectorizer().fit_transform(texts).toarray()
+
+def extract_text_from_pdf(file):
+    """Extract text from PDF file"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        st.error(f"Error reading PDF: {str(e)}")
+        return None
+
+def extract_text_from_docx(file):
+    """Extract text from Word document"""
+    try:
+        doc = Document(file)
+        text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        return text.strip()
+    except Exception as e:
+        st.error(f"Error reading Word document: {str(e)}")
+        return None
+
+def extract_text_from_file(file):
+    """Extract text from uploaded file based on file type"""
+    file_extension = file.name.split('.')[-1].lower()
+    
+    if file_extension == 'txt':
+        try:
+            return file.read().decode("utf-8", errors="ignore")
+        except Exception as e:
+            st.error(f"Error reading text file: {str(e)}")
+            return None
+    
+    elif file_extension == 'pdf':
+        if not PDF_SUPPORT:
+            st.error("PDF support not available. Please install PyPDF2: pip install PyPDF2")
+            return None
+        return extract_text_from_pdf(file)
+    
+    elif file_extension in ['docx', 'doc']:
+        if not DOCX_SUPPORT:
+            st.error("Word document support not available. Please install python-docx: pip install python-docx")
+            return None
+        return extract_text_from_docx(file)
+    
+    else:
+        st.error(f"Unsupported file type: {file_extension}")
+        return None
 
 def similarity(doc1, doc2):
     return cosine_similarity([doc1], [doc2])[0][0]
@@ -529,14 +614,7 @@ if not st.session_state.analyzed:
     # --- INPUT MODE ---
     
     # Section 01: Input Data
-    st.markdown("""
-    <div class="section-header">
-        <div class="section-number">01</div>
-        <h3 style="margin:0;">INPUT DATA</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="geo-line"></div>', unsafe_allow_html=True)
+    render_section("01", "INPUT DATA")
     
     # Input method selection
     input_method = st.radio(
@@ -555,11 +633,11 @@ if not st.session_state.analyzed:
         col1, col2 = st.columns([1, 1], gap="large")
         
         with col1:
-            st.markdown("**DOCUMENT A**")
+            st.markdown(render_doc_label("DOCUMENT A"), unsafe_allow_html=True)
             text_a = st.text_area("Input A", height=400, placeholder="Paste text here...", label_visibility="collapsed")
         
         with col2:
-            st.markdown("**DOCUMENT B**")
+            st.markdown(render_doc_label("DOCUMENT B"), unsafe_allow_html=True)
             text_b = st.text_area("Input B", height=400, placeholder="Paste text here...", label_visibility="collapsed")
         
         if text_a and text_b:
@@ -567,21 +645,37 @@ if not st.session_state.analyzed:
             names = ["Document A", "Document B"]
     
     else:  # UPLOAD FILES
-        st.markdown("**UPLOAD TEXT FILES**")
+        # Determine supported file types
+        supported_types = ["txt"]
+        type_labels = ["TXT"]
+        
+        if PDF_SUPPORT:
+            supported_types.append("pdf")
+            type_labels.append("PDF")
+        if DOCX_SUPPORT:
+            supported_types.extend(["docx", "doc"])
+            type_labels.append("DOC")
+        
+        st.markdown("**UPLOAD DOCUMENTS** (TXT, DOC, or PDF)")
+        
         uploaded_files = st.file_uploader(
             "Choose files",
-            type=["txt"],
+            type=supported_types,
             accept_multiple_files=True,
             label_visibility="collapsed"
         )
         
         if uploaded_files:
             for file in uploaded_files:
-                content = file.read().decode("utf-8", errors="ignore")
-                texts.append(content)
-                names.append(file.name)
+                content = extract_text_from_file(file)
+                if content:  # Only add if extraction was successful
+                    texts.append(content)
+                    names.append(file.name)
             
-            st.success(f"✓ Loaded {len(texts)} file(s)")
+            if texts:
+                st.success(f"✓ Loaded {len(texts)} file(s)")
+            else:
+                st.error("No valid text could be extracted from the uploaded files")
 
     # Action Bar
     st.markdown("<br>", unsafe_allow_html=True)
@@ -665,33 +759,25 @@ else:
         risk_label = "LOW"
     
     # Section 02: Analysis Report
-    st.markdown("""
-    <div class="section-header">
-        <div class="section-number">02</div>
-        <h3 style="margin:0;">ANALYSIS REPORT</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    render_section("02", "ANALYSIS REPORT")
     
-    st.markdown('<div class="geo-line"></div>', unsafe_allow_html=True)
-    
-    # Metrics Display with Colored Progress Bar
+    # Metrics Display
     st.markdown(f"""
     <div class="metric-box">
-        <div style="display:flex; justify-content:space-between; margin-bottom: 24px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:24px;">
             <div>
                 <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">SIMILARITY SCORE</span>
-                <div style="font-size:48px; font-weight:900; line-height:1; margin-top: 8px;">{res['score']*100:.1f}%</div>
+                <div style="font-size:48px; font-weight:900; line-height:1; margin-top:8px;">{res['score']*100:.1f}%</div>
             </div>
             <div style="text-align:right;">
                 <span style="font-size:12px; font-weight:700; color:{C['sub_text']}; letter-spacing:1px;">RISK LEVEL</span>
-                <div style="font-size:32px; font-weight:900; color:{risk_color}; margin-top: 8px;">{risk_label}</div>
+                <div style="font-size:32px; font-weight:900; color:{risk_color}; margin-top:8px;">{risk_label}</div>
             </div>
         </div>
-        <div style="width:100%; height:24px; background-color:{C['bar_bg']}; margin-top:20px; border:2px solid {C['border']}; position: relative; overflow: hidden;">
-            <div style="width:{res['score']*100}%; height:100%; background-color:{risk_color}; transition: width 0.5s ease;"></div>
+        <div style="width:100%; height:24px; background-color:{C['bar_bg']}; margin-top:20px; border:2px solid {C['border']};">
+            <div style="width:{res['score']*100}%; height:100%; background-color:{risk_color}; transition:width 0.5s ease;"></div>
         </div>
-    </div>
-    <br>
+    </div><br>
     """, unsafe_allow_html=True)
     
     # Reset Button
@@ -702,36 +788,24 @@ else:
             st.rerun()
     
     # Section 03: Text Comparison
-    st.markdown("""
-    <div class="section-header">
-        <div class="section-number">03</div>
-        <h3 style="margin:0;">TEXT COMPARISON</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="geo-line"></div>', unsafe_allow_html=True)
+    render_section("03", "TEXT COMPARISON")
     
     common_sents = get_common_sentences(res['text_a'], res['text_b'])
     
     comp1, comp2 = st.columns(2, gap="large")
     
     with comp1:
-        st.markdown("**DOCUMENT A**")
+        st.markdown(render_doc_label("DOCUMENT A"), unsafe_allow_html=True)
         safe_html_a = highlight_text(res['text_a'], common_sents, True)
         st.markdown(f'<div class="compare-box">{safe_html_a}</div>', unsafe_allow_html=True)
         
     with comp2:
-        st.markdown("**DOCUMENT B**")
+        st.markdown(render_doc_label("DOCUMENT B"), unsafe_allow_html=True)
         safe_html_b = highlight_text(res['text_b'], common_sents, False)
         st.markdown(f'<div class="compare-box">{safe_html_b}</div>', unsafe_allow_html=True)
 
     # Section 04: Export
-    st.markdown("""
-    <div class="section-header">
-        <div class="section-number">04</div>
-        <h3 style="margin:0;">EXPORT DATA</h3>
-    </div>
-    """, unsafe_allow_html=True)
+    render_section("04", "EXPORT DATA")
     
     st.download_button(
         "⬇ DOWNLOAD CSV REPORT", 
@@ -740,10 +814,3 @@ else:
         "text/csv",
         use_container_width=True
     )
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Reset button at the end
-    if st.button("⟲ RUN NEW ANALYSIS", use_container_width=True, type="secondary"):
-        st.session_state.analyzed = False
-        st.rerun()
